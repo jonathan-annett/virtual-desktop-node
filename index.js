@@ -53,25 +53,27 @@ function  CSharpOk() {
 
 
 function getDesktops(cb) {
-    const child = execFile(virtualDesktopExePath, ['/List'], (error, stdout, stderr) => {
+    const child = execFile(virtualDesktopExePath, ['/JSON'], (error, stdout, stderr) => {
         if (error) {
             return cb( error );
         }
-        const list = stdout.replace(/\r\n/g,'\n').split("\n");
-        if (list[1].startsWith('---')) {
-            list.splice(0,2);
-            const term =  list.indexOf('') ;
-            if (term >=0) {
-                list.splice(term,list.length);
-            }
-            const current = list.findIndex(function (line){return line.endsWith(' (visible)')});
-            if (current>=0) {
-                list[current]=list[current].replace(/\ \(visible\)$/,'');
-                return cb (undefined,{names:list,visible:list[current],visibleIndex:current});
-            }
-            cb (undefined,{names:list});
-           
+        try {
+            const payload = JSON.parse(stdout);
+            let visible,visibleIndex;
+            const list = payload.desktops.map(function(x,i){
+                if (x.visible) {
+                    visible = x.name;
+                    visibleIndex = i;
+                }
+                return x.name;
+            });
+
+            return cb (undefined,{names:list,visible,visibleIndex});
+
+        } catch (err ) {
+            return cb (err);
         }
+       
        
     }); 
 
@@ -90,13 +92,14 @@ function getDesktopCount(cb) {
 
 
 function getCurrentDesktop(cb) {
-    const child = execFile(virtualDesktopExePath, ['/GetCurrentDesktop'], (error,stdout) => {
-   
-        if (error) {
+
+    const child = execFile(virtualDesktopExePath, ['/gcd'], (error,stdout) => {
+        
+        if (error&& !stdout) {
             return cb( error );
         }
 
-       cb (undefined,{name:stdout.split("'")[1],index:Number.parseInt(stdout.split('(desktop number ')[1])});
+        cb (undefined,{name:stdout.split("'")[1],index:error.code});
        
        
     }); 
@@ -108,7 +111,10 @@ function waitForDesktopChanges(cb) {
  
 
     getDesktops(function (error,desktops) {
-
+        if (error) {
+            console.log({error});
+            return;
+        }
         let names = desktops.names;
         let current = desktops.visibleIndex;
         fetcher();
@@ -146,8 +152,6 @@ function waitForDesktopChanges(cb) {
 
 
 
-
-
 function switchToDesktop(n,cb) {
 
     if (typeof n==='number' ) {
@@ -170,7 +174,7 @@ function switchToDesktop(n,cb) {
         } else {
             n = desktops.names.indexOf (n);
             if (n < 0 ) {
-                cb (new Error("invalid desktop name")) ;
+                cb (new Error(`invalid desktop name : ${n} not in  ${JSON.stringify(desktops.names)}`)) ;
             }
         }
 
@@ -183,16 +187,38 @@ function switchToDesktop(n,cb) {
 
 }
 
+
+function previousDesktop(cb) {
+    const child = execFile(virtualDesktopExePath, ['/l'], (error, stdout, stderr) => {
+        console.log({error, stdout});
+        if (error) {
+            return cb( error );
+        }
+        cb(undefined,stdout);
+    });
+}
+ 
+function nextDesktop(cb) {
+    const child = execFile(virtualDesktopExePath, ['/ri'], (error, stdout, stderr) => {
+        console.log({error, stdout});
+        if (error) {
+            return cb( error );
+        }
+        cb(undefined,stdout);
+    });
+}
  
 function desktopManager() {
 
     let onchange;
     let self = {
         count,
-        switch : switchTo,
+        goto : switchTo,
         names,
         visibleIndex,
-        current
+        current,
+        next,
+        previous
     };
 
     Object.defineProperties(self,{onchange:{
@@ -253,6 +279,26 @@ function desktopManager() {
 
         return new Promise(function(resolve,reject){
             getCurrentDesktop(function (err,info){
+                return err ? reject(err) : resolve( info );
+            });
+        });
+        
+    }
+
+    function previous( ) {
+
+        return new Promise(function(resolve,reject){
+            previousDesktop(function (err,info){
+                return err ? reject(err) : resolve( info );
+            });
+        });
+        
+    }
+
+    function next( ) {
+
+        return new Promise(function(resolve,reject){
+            nextDesktop(function (err,info){
                 return err ? reject(err) : resolve( info );
             });
         });
