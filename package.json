@@ -6,7 +6,7 @@
     "dependencies": {
 
         
-      "virtual-desktop": "git://github.com/jonathan-annett/VirtualDesktop.git#af2de667e38f53ca5c9170659e99d3fa431d6b85"
+      "virtual-desktop": "git://github.com/jonathan-annett/VirtualDesktop.git#4e64ffd20305a85df633a585662384e768b9a9c4"
       },
      "repository": {
       "url":"https://github.com/jonathan-annett/virtual-desktop-node"
