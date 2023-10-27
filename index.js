@@ -1,5 +1,6 @@
+const is_webpacked  = __filename.endsWith('main.js');
 
-const path = require('path'),fs = require('fs'), vd_path = path.dirname(require.resolve('virtual-desktop'));
+const path = require('path'),fs = require('fs'), vd_path = is_webpacked ? __dirname : path.dirname(require.resolve('virtual-desktop'));
 const os = require('os')
 const { execFile } = require('node:child_process');
 
