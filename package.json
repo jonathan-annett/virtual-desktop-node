@@ -4,10 +4,8 @@
     "description": "switch virtual desktops on windows 10,11",
     "main": "index.js",
     "dependencies": {
-
-        
-      "virtual-desktop": "git://github.com/jonathan-annett/VirtualDesktop.git#4e64ffd20305a85df633a585662384e768b9a9c4"
-      },
+      "virtual-desktop": "git://github.com/jonathan-annett/VirtualDesktop.git"
+    },
      "repository": {
       "url":"https://github.com/jonathan-annett/virtual-desktop-node"
     },
