@@ -208,7 +208,7 @@ function nextDesktop(cb) {
     });
 }
  
-function desktopManager0() {
+function desktopManager() {
 
     let onchange;
     let self = {
@@ -312,7 +312,7 @@ function desktopManager0() {
 }
 
 
-function desktopManager() {
+function desktopManager1() {
 
     var spawn = require('child_process').spawn;
     var child = spawn(virtualDesktopExePath,['/INT']);
@@ -479,8 +479,12 @@ function desktopManager() {
 
     function names() {
         return new Promise(function(resolve,reject) {
-            namesResolves.push(resolve);
-            send ('names');      
+            try {
+                namesResolves.push(resolve);
+                send ('names');      
+            } catch (e) {
+                reject(e);
+            }
         });
     }
 
