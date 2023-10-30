@@ -69,6 +69,7 @@ function startManager(overideVersion){
             const ix = clientNames.indexOf(overideVersion);
             if (ix>=0) {
                 virtualDesktopExePath = clientExePaths[ix];
+                module.exports.selectedClientPath = virtualDesktopExePath;
                 return resolve(desktopManager());
             }
         }
