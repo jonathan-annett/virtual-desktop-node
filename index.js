@@ -9,10 +9,10 @@ let virtualDesktopExePath = path.join(vd_path,'VirtualDesktop.exe');
 let virtualDesktopConfigPath = path.join(vd_path,'VirtualDesktop.json');
 
 const clientNames = [
-    'VirtualDesktop11InsiderCanary',
     'VirtualDesktop11-23H2',
     'VirtualDesktop11-21H2',
     'VirtualDesktop11',
+    'VirtualDesktop11InsiderCanary',
     'VirtualDesktop',
     'VirtualDesktopServer2022',
     'VirtualDesktopServer2016'
