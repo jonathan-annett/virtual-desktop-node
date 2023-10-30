@@ -383,7 +383,7 @@ function desktopManager() {
         previous,
         current,
         names,
-        send,
+        custom,
         visibleIndex,
         on: function(e,fn) {
             switch (e) {
@@ -413,9 +413,7 @@ function desktopManager() {
     return self;
 
     function processObject(obj) {
-        //console.log({obj});
-
-
+  
         if (typeof onchange + typeof obj.visibleIndex + typeof obj.visible === 'functionnumberstring' ) {
             const token = `${obj.visibleIndex}:${obj.visible}`;
             if (last !== token) {
@@ -439,8 +437,7 @@ function desktopManager() {
     }
 
     function processArray(arr) {
-       // console.log({arr});
-
+   
         countResolves.splice(0,countResolves.length).forEach(function(resolve){
             resolve(arr.length);
         });
@@ -460,6 +457,22 @@ function desktopManager() {
     function send (cmd){
         vd_IPC.send(cmd);
     }
+
+    function custom (cmd) {
+        return new Promise(function(resolve,reject) {
+            objectCallbacks.push(onObj);
+
+            send(cmd);
+
+            function onObj(obj) {
+                objectCallbacks.splice(objectCallbacks.indexOf(onObj),1);
+                resolve(obj);
+            }
+        });
+
+    }
+
+
 
     function visibleIndex () {
         return new Promise(function(resolve,reject) {
