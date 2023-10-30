@@ -61,10 +61,21 @@ function detectClient() {
    
 }
 
-function startManager(){
+function startManager(overideVersion){
+   
     return new Promise(function(resolve,reject){
 
+        if (overideVersion) {
+            const ix = clientNames.indexOf(overideVersion);
+            if (ix>=0) {
+                virtualDesktopExePath = clientExePaths[ix];
+                return resolve(desktopManager());
+            }
+        }
+
         fs.readFile(virtualDesktopConfigPath,'utf8',function(err,json){
+
+           
             try {
                 if (json) {
                     virtualDesktopExePath = JSON.parse(json).path;
