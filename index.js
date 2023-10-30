@@ -29,8 +29,10 @@ module.exports.clientNames = clientNames
 module.exports.clientExePaths = clientExePaths;
 module.exports.testVersionCandidate = testVersionCandidate;
 
-
-
+// detect the correct version of the client to use (by brute force/trial and error)
+// basically iterates the clientExePaths array (above) until a client is found that returns
+// the list of desktops without throwing an exception
+// 
 function detectClient() {
 
     const spawn = require('child_process').spawn;   
@@ -69,6 +71,7 @@ function detectClient() {
    
 }
 
+// test a specific version of the client by asking it to list the desktops
 function testVersionCandidate(candidatePath) {
 
     const spawn = require('child_process').spawn;   
@@ -95,6 +98,10 @@ function testVersionCandidate(candidatePath) {
         
 }
 
+// auto detecting module entry point, takes optional version name
+// otherwises detects the correct version and saves it into desktopManager.json
+// and resolves to the module instance
+// the next time, if no version name is supplied, the previously detected version will be used.
 function startManager(overideVersion){
    
     return new Promise(function(resolve,reject){
@@ -128,12 +135,12 @@ function startManager(overideVersion){
                 });
             }).catch(reject);
         });
-
        
 
     });
 }
 
+// main module entry point, assumes you know the path to the correct client
 function virtualDesktops(usePath) {
 
     if (usePath) {
@@ -154,156 +161,6 @@ function virtualDesktops(usePath) {
    
 }
 
-function getDesktops(cb) {
-    const child = execFile(virtualDesktopExePath, ['/JSON'], (error, stdout, stderr) => {
-        if (error) {
-            return cb( error );
-        }
-        try {
-            const payload = JSON.parse(stdout);
-            let visible,visibleIndex;
-            const list = payload.desktops.map(function(x,i){
-                if (x.visible) {
-                    visible = x.name;
-                    visibleIndex = i;
-                }
-                return x.name;
-            });
-
-            return cb (undefined,{names:list,visible,visibleIndex});
-
-        } catch (err ) {
-            return cb (err);
-        }
-       
-       
-    }); 
-
-}
-
-function getDesktopCount(cb) {
-    const child = execFile(virtualDesktopExePath, ['/Count'], (exit) => {
-        
-        if (exit) {
-            return cb( undefined,exit.code );
-        }
-       
-       
-    }); 
-}
-
-function getCurrentDesktop(cb) {
-
-    const child = execFile(virtualDesktopExePath, ['/gcd'], (error,stdout) => {
-        
-        if (error&& !stdout) {
-            return cb( error );
-        }
-
-        cb (undefined,{name:stdout.split("'")[1],index:error.code});
-       
-       
-    }); 
-}
-
-function waitForDesktopChanges(cb) {
- 
-
-    getDesktops(function (error,desktops) {
-        if (error) {
-            console.log({error});
-            return;
-        }
-        let names = desktops.names;
-        let current = desktops.visibleIndex;
-        fetcher();
-
-        function fetcher(){
-
-            const child = execFile(virtualDesktopExePath, ['/WDC'], function(exit,stdout) {
-
-                const index = exit ? exit.code : 0;
-
-                poller(index);
-
-                function poller(index) {
-                    if (current!==index) {
-                        const info = {
-                            index : index,
-                            name : names[index],
-                        };
-                        current=index;
-                        getDesktops(function (error,desktops) {
-                            names = desktops.names;
-                            poller(desktops.visibleIndex);
-                        });
-                        cb(info);
-                    }  else {
-                        fetcher();
-                    }                
-                }
-
-            });
-        }
-    });
-
-}
-
-function switchToDesktop(n,cb) {
-
-    if (typeof n==='number' ) {
-
-        if (n<0 )  return cb (new Error("desktop number out of range")) ;
-    } else {
-        if (typeof n!=='string' ) {
-            return cb (new Error("invalid desktop arg - expecting number or string")) ;
-        }
-    }
-
-    getDesktops(function (err,desktops) {
-
-        if (err) return cb (err);
-
-        if (typeof n==='number' ) {
-
-            if (n>= desktops.names.length) return cb (new Error("desktop number out of range")) ;
-
-        } else {
-            n = desktops.names.indexOf (n);
-            if (n < 0 ) {
-                cb (new Error(`invalid desktop name : ${n} not in  ${JSON.stringify(desktops.names)}`)) ;
-            }
-        }
-
-        const child = execFile(virtualDesktopExePath, [`/Switch:${n}` ], function (err,stdout,stderr) {
-            if (err && err.code !== n) return cb (err);
-            cb(undefined,desktops.names [n],n);
-        }); 
-        
-    });
-
-}
-
-function previousDesktop(cb) {
-    const child = execFile(virtualDesktopExePath, ['/l'], (error, stdout, stderr) => {
-        console.log({error, stdout});
-        if (error) {
-            return cb( error );
-        }
-        cb(undefined,stdout);
-    });
-}
- 
-function nextDesktop(cb) {
-    const child = execFile(virtualDesktopExePath, ['/ri'], (error, stdout, stderr) => {
-        console.log({error, stdout});
-        if (error) {
-            return cb( error );
-        }
-        cb(undefined,stdout);
-    });
-}
- 
 function ipcTask(path,args) { 
 
     const events = { error: [], message: [], send:[],exit: [] } ;
@@ -419,7 +276,7 @@ function desktopManager() {
             }
         }
     });
-
+    /*
     vd_IPC.on('send',function(msg){
         console.log('sent message:',msg);
     });
@@ -430,7 +287,7 @@ function desktopManager() {
 
     vd_IPC.on('exit',function(){
         console.log('client exited');
-    });
+    });*/
     
     
 

@@ -1,6 +1,6 @@
 {
     "name": "virtual-desktop-node",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "description": "switch virtual desktops on windows 10,11",
     "main": "index.js",
     "dependencies": {
