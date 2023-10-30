@@ -267,6 +267,7 @@ function ipcTask(path,args) {
     const ipc = spawn(path,args); 
 
     let closed = false;
+    let chunks = [];
 
     ipc.stdin.setEncoding("utf8");
 
@@ -275,17 +276,37 @@ function ipcTask(path,args) {
     });
 
     ipc.stdout.on('data', function (data) {
-        const json = data.toString().trim();
-        if (json.length>0) {
+
+
+        chunks.push(data);
+        const combined = Buffer.concat(chunks).toString();
+        const newlineAt=combined.indexOf('\n');
+        if (newlineAt>=0) {
+
+            if (newlineAt>=0) {
+
+                let json = combined.substring(0,newlineAt-1);
+                
+                if (newlineAt<combined.length-1) {
+                    chunks = [ combined.substring(newlineAt+1)]
+                } else {
+                    chunks = [];
+                }
+
+                if (json.length>0) {
             
-            try {
-                emit('message',JSON.parse(json));
-            } catch (err) {
-                emit('error',err);
+                    try {
+                        emit('message',JSON.parse(json));
+                    } catch (error) {
+                        emit('error',error,json);
+                    }
+
+                }
             }
-        } else {
-            console.log("on data:",data,json);
-        }
+        }       
+
+ 
+       
     });
 
     ipc.on('exit', function () {
@@ -461,12 +482,18 @@ function desktopManager() {
     function custom (cmd) {
         return new Promise(function(resolve,reject) {
             objectCallbacks.push(onObj);
-
+            namesResolves.push(onNames);
             send(cmd);
 
             function onObj(obj) {
                 objectCallbacks.splice(objectCallbacks.indexOf(onObj),1);
+                namesResolves.splice(namesResolves.indexOf(onNames),1);
                 resolve(obj);
+            }
+
+             function onNames(names) {
+                objectCallbacks.splice(objectCallbacks.indexOf(onObj),1);
+                resolve(names);
             }
         });
 
