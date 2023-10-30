@@ -3,55 +3,111 @@ const is_webpacked  = __filename.endsWith('main.js');
 const path = require('path'),fs = require('fs'), vd_path = is_webpacked ? __dirname : path.dirname(require.resolve('virtual-desktop'));
 const os = require('os')
 const { execFile } = require('node:child_process');
+const { error } = require('console');
 
 let virtualDesktopExePath = path.join(vd_path,'VirtualDesktop.exe');
-let buildVirtualDesktopExePath = path.join(vd_path,'Build.bat');
+let virtualDesktopConfigPath = path.join(vd_path,'VirtualDesktop.json');
 
- 
+const clientNames = [
+    'VirtualDesktop11InsiderCanary',
+    'VirtualDesktop11-23H2',
+    'VirtualDesktop11-21H2',
+    'VirtualDesktop11',
+    'VirtualDesktop',
+    'VirtualDesktopServer2022',
+    'VirtualDesktopServer2016'
+];
 
-module.exports = function() {
+const clientExePaths = clientNames.map(function(p){
+    return path.join(vd_path,p+'.exe');
+});
+
+
+function detectClient() {
+
+    const spawn = require('child_process').spawn;   
+
+    return new Promise(function(resolve,reject){
+
+        detect(0);
+
+        function detect(i) {
+            if (i<clientExePaths.length) {
+                const candidatePath = clientExePaths[i];
+                let failed = false;
+                const exe = spawn(candidatePath,["/LIST"]); 
+
+                exe.stderr.on('data',function(buf){
+                    failed = true;
+                });
+
+                exe.on('exit',function(){
+                    if (failed) {
+                        return detect(i+1);
+                    } else {
+                        resolve(candidatePath);
+                    }
+                   
+                });
+
+            
+            } else {
+                reject(new Error('No Client'));
+            }
+        }
+
+    });
+
+   
+}
+
+function startManager(){
+    return new Promise(function(resolve,reject){
+
+        fs.readFile(virtualDesktopConfigPath,'utf8',function(err,json){
+            try {
+                if (json) {
+                    virtualDesktopExePath = JSON.parse(json).path;
+                    return resolve(desktopManager());
+                }
+            } catch ( err ) {
+            }
+
+            detectClient().then(function(path){
+                fs.writeFile(virtualDesktopConfigPath,JSON.stringify({path}),function(){
+                    virtualDesktopExePath = path;
+                    resolve(desktopManager());
+                });
+            }).catch(reject);
+        });
+
+       
+
+    });
+}
+
+module.exports = function(usePath) {
+
+    if (usePath) {
+        virtualDesktopExePath = usePath;
+    }
     
     return new Promise(function(resolve,reject){
 
         fs.stat(virtualDesktopExePath,function(err){
             if (err) {
-                process.chdir(vd_path);
-                console.log("building virtualDesktop.exe");
-                const child = execFile('cmd', [ '/c', buildVirtualDesktopExePath ], {env : {CMDCMDLINE : ``} }, function (error,stdout) {
-                    process.chdir(__dirname);
-                    if (error) return reject(error);
-                  
-                    resolve( desktopManager() );
-        
-                });
+               reject(err);
             } else {
                 resolve( desktopManager() );
-            }
-            
-        });
-     
+            }            
+        });     
 
     });
    
- 
 };
 
-module.exports.CSharpPath = CSharpPath;
-module.exports.CSharpOk = CSharpOk;
-
-
-function CSharpPath () {
-    if (! CSharpPath.cache ) {
-        CSharpPath.cache = path.join (  process.env.SystemRoot ||  process.env.windir || 'c:\\Windows' ,'Microsoft.NET','Framework','v4.0.30319','csc.exe');
-    }
-    return CSharpPath.cache;
-}
-
-function  CSharpOk() {
-    return fs.existsSync( CSharpPath ());
-}
-
-
+module.exports.detectClient = detectClient;
+module.exports.startManager = startManager;
 
 function getDesktops(cb) {
     const child = execFile(virtualDesktopExePath, ['/JSON'], (error, stdout, stderr) => {
@@ -91,7 +147,6 @@ function getDesktopCount(cb) {
     }); 
 }
 
-
 function getCurrentDesktop(cb) {
 
     const child = execFile(virtualDesktopExePath, ['/gcd'], (error,stdout) => {
@@ -105,8 +160,6 @@ function getCurrentDesktop(cb) {
        
     }); 
 }
-
-
 
 function waitForDesktopChanges(cb) {
  
@@ -151,8 +204,6 @@ function waitForDesktopChanges(cb) {
 
 }
 
-
-
 function switchToDesktop(n,cb) {
 
     if (typeof n==='number' ) {
@@ -188,7 +239,6 @@ function switchToDesktop(n,cb) {
 
 }
 
-
 function previousDesktop(cb) {
     const child = execFile(virtualDesktopExePath, ['/l'], (error, stdout, stderr) => {
         console.log({error, stdout});
@@ -209,114 +259,114 @@ function nextDesktop(cb) {
     });
 }
  
-function desktopManager() {
+function ipcTask(path,args) { 
 
-    let onchange;
-    let self = {
-        count,
-        goto,
-        names,
-        visibleIndex,
-        current,
-        next,
-        previous
-    };
+    const events = { error: [], message: [], send:[],exit: [] } ;
+    const spawn = require('child_process').spawn;   
 
-    Object.defineProperties(self,{onchange:{
-        get : function () { return onchange;},
-        set : function(v) {
-          
-            if (typeof v==='function') {
-                onchange = v;
+    const ipc = spawn(path,args); 
+
+    let closed = false;
+
+    ipc.stdin.setEncoding("utf8");
+
+    ipc.stderr.on('data', function (data) {
+        emit('error',data.toString());
+    });
+
+    ipc.stdout.on('data', function (data) {
+        const json = data.toString().trim();
+        if (json.length>0) {
+            
+            try {
+                emit('message',JSON.parse(json));
+            } catch (err) {
+                emit('error',err);
             }
-        },
-        enumerable: true,
-    }})
+        } else {
+            console.log("on data:",data,json);
+        }
+    });
 
-    waitForDesktopChanges(notifier);
+    ipc.on('exit', function () {
+        closed=true;
+        emit('exit');
+    });
 
-    return self;
-
-    function notifier(info) {
-        if (typeof onchange==='function') {
-            onchange(info);
+    function on(ev,fn) {
+        if (typeof ev+typeof fn+ typeof events[ev] === 'stringfunctionobject') {
+            const stack = events[ev],ix=stack.indexOf(fn);
+            if (ix<0) stack.push(fn);            
         }
     }
 
-    function goto (n) {
-        return new Promise(function(resolve,reject){
-            switchToDesktop(n,function (err,name,index ){
-                return err ? reject(err) : resolve( {index,name}  );
-            });
-        });
-            
+    function off(ev,fn) {
+        if (typeof ev+typeof fn+ typeof events[ev] === 'stringfunctionobject') {
+            const stack = events[ev],ix=stack.indexOf(fn);
+            if (ix>=0) stack.splice(ix,1);            
+        }
     }
 
-    function count() {
-        return new Promise(function(resolve,reject){
-            getDesktopCount(function (err,count){
-                return err ? reject(err) : resolve( count );
+    function emit(ev) {
+        const stack = events[ev];
+        if (Array.isArray(stack)) {
+            const args = [].slice.call(arguments,1);
+            stack.forEach(function(fn){
+                fn.apply(null,args);
             });
-        });
+        }
     }
 
-    function names () {
-        return new Promise(function(resolve,reject){
-            getDesktops(function (err,desktops){
-                return err ? reject(err) : resolve( desktops.names );
-            });
-        });
-    }
-
-    
-
-    function visibleIndex () {
-        return new Promise(function(resolve,reject){
-            getDesktops(function (err,desktops){
-                return err ? reject(err) : resolve( desktops.visibleIndex );
-            });
-        });
-    }
-
-    function current( ) {
-
-        return new Promise(function(resolve,reject){
-            getCurrentDesktop(function (err,info){
-                return err ? reject(err) : resolve( info );
-            });
-        });
-        
-    }
-
-    function previous( ) {
-
-        return new Promise(function(resolve,reject){
-            previousDesktop(function (err,info){
-                return err ? reject(err) : resolve( info );
-            });
-        });
-        
-    }
-
-    function next( ) {
-
-        return new Promise(function(resolve,reject){
-            nextDesktop(function (err,info){
-                return err ? reject(err) : resolve( info );
-            });
-        });
-        
+    function send(msg) {
+        if (closed) throw new Error ("Attempt to send to client that has exited");
+        ipc.stdin.write((typeof msg==='string'?msg:JSON.stringify(msg)) + "\n");
+        emit('send',msg);
     }
 
 
-    
+    function close() {
+        try {
+            ipc.kill(); 
+        } catch (err) {
+            console.log(err);
+        }
+    }
+
+    return {
+        on,
+        off,
+        send,
+        close
+    };
 }
 
+function desktopManager() {
 
-function desktopManager1() {
+    var vd_IPC = ipcTask(virtualDesktopExePath,['/INT']);
 
-    var spawn = require('child_process').spawn;
-    var child = spawn(virtualDesktopExePath,['/INT']);
+    vd_IPC.on('message',function(msg){
+        if (typeof msg==='object') {
+            if (Array.isArray(msg)) {
+                processArray(msg)
+            } else {
+                processObject(msg);
+            }
+        }
+    });
+
+    vd_IPC.on('send',function(msg){
+        console.log('sent message:',msg);
+    });
+
+    vd_IPC.on('error',function(err){
+        console.log('client error',err.message);
+    });
+
+    vd_IPC.on('exit',function(){
+        console.log('client exited');
+    });
+    
+    
 
     let data_in = '';
 
@@ -324,60 +374,7 @@ function desktopManager1() {
 
     const countResolves = [], namesResolves = [], objectCallbacks = [];
  
-    child.stdout.on('data', function(data) {
-       
-       data_in += data.toString();
-       const lines = data_in.split('\n');
-       data_in = '';
-      
-       while (lines.length>0) {
-
-         const line = lines.shift();
-         
-         if (line.startsWith('{') ) {
-
-            if (line.endsWith('}')) {
-                
-                // process json object line
-                try {
-                    processObject(JSON.parse(line));
-                } catch (err) {
-                    console.log(err)
-                }
-
-            } else {
-
-                if (lines.length===0) {
-                    // this is an incomplete json object line, save it for later
-                    data_in = line;
-                    break;
-                }
-
-            }
-
-         } else {
-            if (line.startsWith('[') ) {
-                if (line.endsWith(']') ) {
-                    try {
-                        processArray(JSON.parse(line));
-                    } catch (err) {
-                        console.log(err)
-                    }
-                } else {
-                    if (lines.length===0) {
-                         // this is an incomplete json array line, save it for later
-                        data_in = line;
-                        break;
-                    }
-                }
-            } else {
-               // ignore non JSON line
-            }
-         }
-       }
-
-    });
-
+    
     const self = {
 
         count,
@@ -411,10 +408,12 @@ function desktopManager1() {
     }});
 
 
+
+
     return self;
 
     function processObject(obj) {
-        console.log({obj});
+        //console.log({obj});
 
 
         if (typeof onchange + typeof obj.visibleIndex + typeof obj.visible === 'functionnumberstring' ) {
@@ -440,7 +439,7 @@ function desktopManager1() {
     }
 
     function processArray(arr) {
-        console.log({arr});
+       // console.log({arr});
 
         countResolves.splice(0,countResolves.length).forEach(function(resolve){
             resolve(arr.length);
@@ -459,8 +458,7 @@ function desktopManager1() {
     }
 
     function send (cmd){
-        child.stdin.write(`${cmd}\n`);
-        
+        vd_IPC.send(cmd);
     }
 
     function visibleIndex () {
@@ -471,7 +469,7 @@ function desktopManager1() {
 
             function onObj(obj) {
                 objectCallbacks.splice(objectCallbacks.indexOf(onObj),1);
-                resolve(obj);
+                resolve(obj.visibleIndex);
             }
         });
 
@@ -479,6 +477,7 @@ function desktopManager1() {
 
 
     function names() {
+
         return new Promise(function(resolve,reject) {
             try {
                 namesResolves.push(resolve);
@@ -487,6 +486,7 @@ function desktopManager1() {
                 reject(e);
             }
         });
+
     }
 
     function goto (dt) {
