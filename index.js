@@ -297,7 +297,8 @@ function desktopManager() {
 
     const countResolves = [], namesResolves = [], objectCallbacks = [];
  
-    
+    let onchange,last;
+
     const self = {
 
         count,
@@ -311,25 +312,11 @@ function desktopManager() {
         on: function(e,fn) {
             switch (e) {
                 case 'variable' : onvariable = fn; break;
-                case 'change' : self.onchange = fn; break;
+                case 'change' : onchange = fn; break;
                     
             }
         }
     };
-
-    let onchange,last;
-
-    Object.defineProperties(self,{onchange:{
-        get : function () { return onchange;},
-        set : function(v) {
-          
-            if (typeof v==='function') {
-                onchange = v;
-            }
-        },
-        enumerable: true,
-    }});
-
 
 
 
@@ -354,6 +341,10 @@ function desktopManager() {
             }
             if (typeof obj.visible === 'string') {
                 onvariable('visible',obj.visible);
+            }
+
+            if (typeof obj.count === 'number') {
+                onvariable('count',obj.count);
             }
         }
         
@@ -401,6 +392,7 @@ function desktopManager() {
 
 
     function visibleIndex () {
+
         return new Promise(function(resolve,reject) {
             objectCallbacks.push(onObj);
 
@@ -429,6 +421,7 @@ function desktopManager() {
     }
 
     function goto (dt) {
+
         return new Promise(function(resolve) {
 
             objectCallbacks.push(onObj);
@@ -442,6 +435,7 @@ function desktopManager() {
                 }
             }
         });
+
     }
 
     function previous (index) {
@@ -454,9 +448,11 @@ function desktopManager() {
                 resolve(obj);
             }       
         });
+
     }
 
     function next (index) {
+
         return new Promise(function(resolve,reject) {
             objectCallbacks.push(onObj);
             send ('right');     
@@ -465,9 +461,11 @@ function desktopManager() {
                 resolve(obj);
             }       
         });
+
     }
 
     function current () {
+
         return new Promise(function(resolve,reject) {
             objectCallbacks.push(onObj);
             send ('gcd');     
@@ -476,15 +474,19 @@ function desktopManager() {
                 resolve(obj);
             }       
         });
+
     }
 
 
     function count () {
+
         return new Promise(function(resolve,reject) {
+
             countResolves.push(resolve);
             send ('names');
             
         });
+
     }
 
  
