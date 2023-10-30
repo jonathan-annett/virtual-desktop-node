@@ -110,7 +110,7 @@ function startManager(overideVersion){
             const ix = clientNames.indexOf(overideVersion);
             if (ix>=0) {
                 virtualDesktopExePath = clientExePaths[ix];
-                module.exports.selectedClientPath = virtualDesktopExePath;
+                module.exports.selectedClient = overideVersion;
                 return resolve(desktopManager());
             }
         }
@@ -121,7 +121,7 @@ function startManager(overideVersion){
             try {
                 if (json) {
                     virtualDesktopExePath = JSON.parse(json).path;
-                    module.exports.selectedClientPath = virtualDesktopExePath;
+                    module.exports.selectedClient = clientNames[  clientExePaths.indexOf (virtualDesktopExePath) ] || module.exports.selectedClient;
                     return resolve(desktopManager());
                 }
             } catch ( err ) {
@@ -130,7 +130,7 @@ function startManager(overideVersion){
             detectClient().then(function(path){
                 fs.writeFile(virtualDesktopConfigPath,JSON.stringify({path}),function(){
                     virtualDesktopExePath = path;
-                    module.exports.selectedClientPath = path;
+                    module.exports.selectedClient = clientNames[  clientExePaths.indexOf (virtualDesktopExePath) ] || module.exports.selectedClient;
                     resolve(desktopManager());
                 });
             }).catch(reject);
