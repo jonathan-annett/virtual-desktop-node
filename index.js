@@ -382,21 +382,18 @@ function desktopManager() {
     }
 
     function custom (cmd) {
+
+        if (cmd.toLowerCase()==='names') return names();
+
         return new Promise(function(resolve,reject) {
             objectCallbacks.push(onObj);
-            namesResolves.push(onNames);
             send(cmd);
 
             function onObj(obj) {
                 objectCallbacks.splice(objectCallbacks.indexOf(onObj),1);
-                namesResolves.splice(namesResolves.indexOf(onNames),1);
                 resolve(obj);
             }
 
-             function onNames(names) {
-                objectCallbacks.splice(objectCallbacks.indexOf(onObj),1);
-                resolve(names);
-            }
         });
 
     }
