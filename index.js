@@ -22,6 +22,14 @@ const clientExePaths = clientNames.map(function(p){
     return path.join(vd_path,p+'.exe');
 });
 
+module.exports = virtualDesktops;
+module.exports.detectClient = detectClient;
+module.exports.startManager = startManager;
+module.exports.clientNames = clientNames
+module.exports.clientExePaths = clientExePaths;
+module.exports.testVersionCandidate = testVersionCandidate;
+
+
 
 function detectClient() {
 
@@ -59,6 +67,32 @@ function detectClient() {
     });
 
    
+}
+
+function testVersionCandidate(candidatePath) {
+
+    const spawn = require('child_process').spawn;   
+
+    return new Promise(function(resolve,reject){
+
+        let failed = false;
+        const exe = spawn(candidatePath,["/LIST"]); 
+
+        exe.stderr.on('data',function(buf){
+            failed = true;
+        });
+
+        exe.on('exit',function(){
+            if (failed) {
+                return reject(new Error('failed to list desktops'));
+            } else {
+                resolve(candidatePath);
+            }
+            
+        });
+
+    });
+        
 }
 
 function startManager(overideVersion){
@@ -100,7 +134,7 @@ function startManager(overideVersion){
     });
 }
 
-module.exports = function(usePath) {
+function virtualDesktops(usePath) {
 
     if (usePath) {
         virtualDesktopExePath = usePath;
@@ -118,12 +152,7 @@ module.exports = function(usePath) {
 
     });
    
-};
-
-module.exports.detectClient = detectClient;
-module.exports.startManager = startManager;
-module.exports.clientNames = clientNames
-module.exports.clientExePaths = clientExePaths;
+}
 
 function getDesktops(cb) {
     const child = execFile(virtualDesktopExePath, ['/JSON'], (error, stdout, stderr) => {
