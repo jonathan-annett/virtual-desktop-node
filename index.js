@@ -68,6 +68,7 @@ function startManager(){
             try {
                 if (json) {
                     virtualDesktopExePath = JSON.parse(json).path;
+                    module.exports.selectedClientPath = virtualDesktopExePath;
                     return resolve(desktopManager());
                 }
             } catch ( err ) {
@@ -76,6 +77,7 @@ function startManager(){
             detectClient().then(function(path){
                 fs.writeFile(virtualDesktopConfigPath,JSON.stringify({path}),function(){
                     virtualDesktopExePath = path;
+                    module.exports.selectedClientPath = path;
                     resolve(desktopManager());
                 });
             }).catch(reject);
@@ -108,6 +110,8 @@ module.exports = function(usePath) {
 
 module.exports.detectClient = detectClient;
 module.exports.startManager = startManager;
+module.exports.clientNames = clientNames
+module.exports.clientExePaths = clientExePaths;
 
 function getDesktops(cb) {
     const child = execFile(virtualDesktopExePath, ['/JSON'], (error, stdout, stderr) => {
