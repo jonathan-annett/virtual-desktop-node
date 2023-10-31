@@ -312,7 +312,7 @@ function desktopManager() {
         on: function(e,fn) {
             switch (e) {
                 case 'variable' : onvariable = fn; break;
-                case 'change' : onchange = fn; break;
+                case 'change'   : onchange = fn; break;
                     
             }
         }
@@ -325,11 +325,13 @@ function desktopManager() {
     function processObject(obj) {
   
         if (typeof onchange + typeof obj.visibleIndex + typeof obj.visible === 'functionnumberstring' ) {
+
             const token = `${obj.visibleIndex}:${obj.visible}`;
             if (last !== token) {
                 last=token;
                 onchange(obj);
             }
+            
         }
 
         objectCallbacks.forEach(function(fn){fn(obj);});
@@ -339,6 +341,7 @@ function desktopManager() {
             if (typeof obj.visibleIndex==='number') {
                 onvariable('visibleIndex',obj.visibleIndex);
             }
+
             if (typeof obj.visible === 'string') {
                 onvariable('visible',obj.visible);
             }
@@ -346,6 +349,7 @@ function desktopManager() {
             if (typeof obj.count === 'number') {
                 onvariable('count',obj.count);
             }
+
         }
         
     }
